@@ -1,4 +1,5 @@
-//! c:malloc@0000014f
+//! 000.....: p := malloc()
+//! 000.....: when c jmp _
 
 #include <stdlib.h>
 

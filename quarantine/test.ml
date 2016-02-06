@@ -1,5 +1,6 @@
 open Core_kernel.Std
 open Filename
+open Format
 
 (* any $(var) can be changed with TEST_VAR environment variable,
    for example, TEST_ARCH=x86, for $(arch).*)
@@ -7,7 +8,7 @@ let compile =
   "$(arch)-$(abi)-$(cc)-$(ver) $opt -g $(file).c -o $(dir)$(file)"
 
 let bap =
-  "bap $(options) $(dir)$(file) $(ida) $(symfile) $(plugin)"
+  "bap $(user_options) $(options) $(dir)$(file) $(ida) $(symfile) $(plugin) $(redirect)"
 
 let test_folder = "/tmp/bap/tests/"
 
@@ -18,12 +19,17 @@ let subst = [
   "ver", "4.7";
   "opt", "";
   "dir", test_folder;
+  "user_options", "";
   "options", "";
   "ida", "";
   "symfile", "";
   "plugin", "";
+  "redirect", "";
 
 ]
+
+
+type expect = Expect.t
 
 let verbose = try Sys.getenv "VERBOSE" with Not_found -> "0"
 
@@ -33,12 +39,10 @@ exception Command_failed of string with sexp
 let result_of_string line =
   try Scanf.sscanf line "//! %s@\n" Option.some with exn -> None
 
-let expected_results file =
-  In_channel.with_file file ~f:(fun inc ->
-      In_channel.fold_lines inc ~init:String.Set.empty ~f:(fun rs str ->
-          match result_of_string str with
-          | None -> rs
-          | Some res -> Set.add rs (String.strip res)))
+let expected_results file : expect =
+  In_channel.read_lines file |>
+  List.filter_map ~f:result_of_string |>
+  Expect.create
 
 let expand pat map =
   let buf = Buffer.create 64 in
@@ -73,7 +77,7 @@ let build_file file =
 
 let mtime file =
   let file = expand (sprintf "%s" file) subst in
-  try Unix.((stat file).st_mtime) with exn -> Float.nan
+  try Unix.((stat file).st_mtime) with exn -> 0.0
 
 let needs_rebuild f =
   let s =
@@ -87,20 +91,28 @@ let pipe_bap plugin file =
   pipe @@ expand bap @@ [
     "file", chop_extension file;
     "symfile", with_syms file;
-    "options", sprintf "-l%s" plugin] @
+    "options", sprintf "-l%s" plugin ] @
     subst
 
-let print_result ~exp ~got =
-  printf "Expected:\n";
-  Set.iter ~f:print_endline exp;
-  printf "Got:\n";
-  Set.iter ~f:print_endline got
+let print_result misses got =
+  eprintf "@.@.%a in the following output:@.@."
+    Expect.pp_misses misses;
+  List.iter ~f:print_endline got
+
+let set_of_list xs =
+  List.fold xs ~init:String.Set.empty ~f:(fun set s ->
+      Set.add set (String.strip s))
+
 
 let ok plugin file =
   let exp = expected_results file in
-  let got = String.Set.of_list (pipe_bap plugin file) in
-  if verbose <> "0" then print_result ~exp ~got;
-  Set.equal exp got
+  let got = pipe_bap plugin file  in
+  match Expect.all_matches exp got with
+  | `Yes -> true
+  | `Missed misses ->
+    if verbose <> "0" then print_result misses got;
+    false
+
 
 let check plugin file =
   if file <> Sys.argv.(0) then
