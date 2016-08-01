@@ -3,6 +3,9 @@ open Core_kernel.Std
 open Options
 open Check
 
+let (^::) = Seq.cons
+
+
 let print_seq s =
   Format.printf "Defs:";
   Seq.iter s ~f:(fun x -> Format.printf "%a " Def.pp x)
@@ -12,7 +15,7 @@ let debug s acc def =
   print_seq acc
 
 let get_vars exp =
-  (object inherit [Var.t seq] Bil.visitor
+  (object inherit [Var.t seq] Exp.visitor
     method! enter_var v state =
       v ^:: state
   end)#visit_exp exp
@@ -159,7 +162,7 @@ let output sub' arg_dependence jmp_dependence sink_intersect_dependence jmp_tids
     r sink_intersect_dependence add_green in
 
   (*match Seq.length arg_dependence with
-  | 0 -> ()
-  | _ ->
+    | 0 -> ()
+    | _ ->
     (* let sub' = Resolve_calls.resolve_calls ctxt.project sub' in *)*)
-    highlight_cli ~highlight ctxt sub' arg_dependence
+  highlight_cli ~highlight ctxt sub' arg_dependence

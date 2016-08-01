@@ -1,4 +1,0 @@
-PKG bap
-B _build
-EXT nonrec
-FLG -short-paths

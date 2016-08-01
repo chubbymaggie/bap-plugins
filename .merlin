@@ -1,4 +1,5 @@
 PKG core_kernel
 PKG bap
 PKG cmdliner
+PKG ppx_jane
 FLG -short-paths

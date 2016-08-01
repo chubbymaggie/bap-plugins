@@ -2,10 +2,7 @@ open Core_kernel.Std
 open Bap.Std
 open Parameters
 open Cmdliner
-
-let name = "fold-consts"
-let version = "0.0.1"
-
+include Self()
 
 let doc = "Perform global constant folding on each function"
 
@@ -29,7 +26,7 @@ let fix_sp : string option option Term.t =
          options.fix_sp & info ["fix-sp"] ~doc)
 
 module Perm = struct
-  type t = [`no | `ro | `rw] with sexp
+  type t = [`no | `ro | `rw] [@@deriving sexp]
   let to_string x = Sexp.to_string (sexp_of_t x)
   let variants = List.map [`no;`ro;`rw] ~f:(fun x -> to_string x, x)
 end
@@ -51,8 +48,8 @@ let set_options fix_sp resolve_loads =
   options.resolve_loads <- resolve_loads
 
 let top = Term.(pure set_options $fix_sp $resolve_loads)
-let main argv proj = match Term.eval ~argv (top,info) with
+let main proj = match Term.eval ~argv (top,info) with
   | `Ok () -> Main.run proj
   | _ -> invalid_arg "Bad user input"
 
-let () = Project.register_pass_with_args name main
+let () = Project.register_pass main
