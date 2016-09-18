@@ -82,13 +82,7 @@ let spec = specification [
     maybe_checked "calloc";
     untrusted_input "strcpy" "system";
     untrusted_input "sprintf" "system";
+    untrusted_input "snprintf" "system";
     recv_to "strcpy"  [_';q];
     data_sanitized "fgets" "realpath" "fopen";
-    magic "read" is_black;
-    magic "readv" is_black;
-    magic "recvmsg" is_black;
-    magic_may_leak_into "1" is_black "strcmp" [_';x];
-    magic_may_leak_into "2" is_black "strcmp" [x;_'];
-    magic_may_leak_into "3" is_black "strncmp" [_';x];
-    magic_may_leak_into "4" is_black "strncmp" [x;_'];
   ]
