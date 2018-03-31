@@ -15,7 +15,7 @@ let subst = [
   "arch", "arm";
   "abi",  "linux-gnueabi";
   "cc", "gcc";
-  "ver", "4.7";
+  "ver", "5";
   "opt", "";
   "dir", test_folder;
   "options", "";
@@ -26,6 +26,8 @@ type expect = Expect.t
 let verbose () = try Sys.getenv "VERBOSE" with Not_found -> "0"
 
 exception Command_failed of string [@@deriving sexp]
+
+let assoc = List.Assoc.find_exn ~equal:String.equal
 
 
 let result_of_string line =
@@ -40,15 +42,21 @@ let expand pat map =
   let buf = Buffer.create 64 in
   Buffer.add_substitute buf (fun key ->
       try Sys.getenv ("TEST_"^String.uppercase key) with
-        Not_found -> try List.Assoc.find_exn map key with
+        Not_found -> try assoc map key with
           Not_found -> failwithf "no subst for %s" key ())
     pat;
   Buffer.contents buf
 
-let pipe cmd =
-  let inp = Unix.open_process_in cmd in
-  let r = In_channel.input_lines inp in
-  In_channel.close inp; r
+let pipe cmd : string list =
+  let env = Unix.environment () in
+  let out,inp,err = Unix.open_process_full cmd env in
+  Out_channel.close inp;
+  let res = List.concat [
+      In_channel.input_lines out;
+      In_channel.input_lines err;
+    ] in
+  List.iter ~f:In_channel.close [out;err];
+  res
 
 let sh cmd =
   if Sys.command cmd <> 0 then
